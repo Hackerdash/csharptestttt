@@ -1,0 +1,46 @@
+name: csharp-qs
+description: This is an action to assign yourself to an issue for a repo you are not a contributor to.
+author: Hackerghost
+branding:
+  icon: 'thumbs-up'
+  color: 'white'
+inputs:
+  PAT:
+    description: 'The GITHUB_TOKEN repo secret'
+    default: 'No PAT provided'
+  qscore:
+    description: 'provide the QScored api'
+    default: 'No qscore provided'
+  username:
+    description: 'provide the username '
+    default: 'No username provided'
+  projectname:
+    description: 'provide the projectname '
+    default: ${{github.event.repository.name}}
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@v2
+    - name: download build tools
+      run: Invoke-webrequest -uri  https://aka.ms/vs/16/release/vs_buildtools.exe -OutFile vs_buildtools.exe
+      shell: powershell
+
+    - name: install build tools with required packages
+      run: .\vs_buildtools.exe --wait --norestart --passive --installPath "C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools" --includeOptional --includeRecommended --add Microsoft.VisualStudio.Workload.ManagedDesktopBuildTools --add Microsoft.VisualStudio.Workload.MSBuildTools --add Microsoft.VisualStudio.Workload.NativeDesktop --add Microsoft.VisualStudio.Workload.NetCoreTools
+      shell: cmd
+
+    - name: set MSBuildSDKsPath env variable
+      run: echo ::set-env name=MSBuildSDKsPath::"C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\MSBuild\Sdks"
+
+    - name: download DesigniteConsole.exe and unpack
+      run: |
+        curl.exe -o DesigniteConsole.zip "http://www.designite-tools.com/download/DesigniteConsole.zip"
+        powershell.exe -nologo -noprofile -command "& { Add-Type -A 'System.IO.Compression.FileSystem'; [IO.Compression.ZipFile]::ExtractToDirectory('DesigniteConsole.zip','.');}"
+      shell: cmd
+    - name: Run Designite and send the analysis report to QScored
+      run: |
+        .\DesigniteConsole\DesigniteConsole.exe -ci -repo ${{ github.repository }} -pat ${{ inputs.PAT}}
+        # cat Designite_output/DesigniteAnalysis.xml
+        curl -X PUT -H "Authorization: Token ${{ inputs.qscore }}" -H "repository-link:https://github.com/" + ${{ github.repository }} -H "username:${{inputs.username}}" -H "Content-Type: mulitpart/form-data" --url "https://qscored.com/api/upload/file.xml?is_open_access=off&version=${{ github.run_number }}&project_name=${{ inputs.projectname }}" -F "file=@Designite_output/DesigniteAnalysis.xml"
+      shell: cmd
