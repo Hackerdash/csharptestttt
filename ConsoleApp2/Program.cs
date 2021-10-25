@@ -2,11 +2,12 @@
 
 namespace ConsoleApp2
 {
-    class Program
+  class Program
+  {
+    static void Main(string[] args)
     {
-        static void Main(string[] args)
-        {
-            Console.WriteLine("Hello World!");
-        }
+      Car myObj = new Car();
+      Console.WriteLine(myObj.color);
     }
+  }
 }
